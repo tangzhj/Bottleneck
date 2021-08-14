@@ -1,7 +1,7 @@
 # scRNA-seq analyses
 
 ## Input files
- scRNA-seq data derived from hematopoietic cell types from Granja* et al (2019).><br>
+ scRNA-seq data derived from hematopoietic cell types from Granja* et al (2019).<br>
  **Link** : https://jeffgranja.s3.amazonaws.com/ArchR/TestData/scRNA-Hematopoiesis-Granja-2019.rds
 ## Analysis content
  1.Seurat project<br>
