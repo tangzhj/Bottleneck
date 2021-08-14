@@ -1,0 +1,29 @@
+Chr	Start	End	Ref	Alt	Func.MT_ensGene	Gene.MT_ensGene	GeneDetail.MT_ensGene	ExonicFunc.MT_ensGene	AAChange.MT_ensGene
+chrM	205	205	T	C	upstream	RNR1;tRNA-Phe	dist=374		
+chrM	240	240	T	C	upstream	RNR1;tRNA-Phe	dist=339		
+chrM	264	264	A	G	upstream	RNR1;tRNA-Phe	dist=315		
+chrM	437	437	C	T	upstream	RNR1;tRNA-Phe	dist=142		
+chrM	439	439	C	T	upstream	RNR1;tRNA-Phe	dist=140		
+chrM	680	680	C	G	ncRNA_exonic	RNR1			
+chrM	1564	1564	T	C	ncRNA_exonic	RNR1			
+chrM	2897	2897	G	A	ncRNA_exonic	RNR2			
+chrM	4770	4770	A	G	exonic	ND2		synonymous SNV	ND2:ENST00000361453:exon1:c.G300G:p.M100M
+chrM	5448	5448	C	T	exonic	ND2		synonymous SNV	ND2:ENST00000361453:exon1:c.C978T:p.L326L
+chrM	5569	5569	A	G	ncRNA_exonic	tRNA-Trp			
+chrM	5786	5786	T	C	ncRNA_exonic	tRNA-Cys			
+chrM	6544	6544	A	T	exonic	COX1		nonsynonymous SNV	COX1:ENST00000361624:exon1:c.A640T:p.N214Y
+chrM	8686	8686	C	T	exonic	ATP6		synonymous SNV	ATP6:ENST00000361899:exon1:c.C159T:p.T53T
+chrM	9146	9146	G	A	exonic	ATP6		nonsynonymous SNV	ATP6:ENST00000361899:exon1:c.G619A:p.A207T
+chrM	10027	10027	T	C	ncRNA_exonic	tRNA-Gly			
+chrM	10809	10809	C	G	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.C49G:p.L17V
+chrM	10938	10938	C	T	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.C178T:p.P60S
+chrM	10951	10951	C	T	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.C191T:p.P64L
+chrM	12825	12825	A	G	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.A488G:p.D163G
+chrM	13653	13653	C	T	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.C1316T:p.T439I
+chrM	13765	13765	C	G	exonic	ND5		synonymous SNV	ND5:ENST00000361567:exon1:c.C1428G:p.S476S
+chrM	13768	13768	C	T	exonic	ND5		synonymous SNV	ND5:ENST00000361567:exon1:c.C1431T:p.P477P
+chrM	14426	14426	C	T	exonic	ND6		synonymous SNV	ND6:ENST00000361681:exon1:c.G249A:p.G83G
+chrM	15201	15201	G	A	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.G454A:p.A152T
+chrM	16045	16045	T	C	upstream;downstream	tRNA-Pro;CYTB;tRNA-Thr	dist=21;dist=91		
+chrM	16220	16220	A	G	upstream;downstream	tRNA-Pro;CYTB;tRNA-Thr	dist=196;dist=266		
+chrM	16363	16363	T	C	upstream;downstream	tRNA-Pro;CYTB;tRNA-Thr	dist=339;dist=409		

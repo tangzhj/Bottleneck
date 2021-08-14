@@ -1,0 +1,69 @@
+Chr	Start	End	Ref	Alt	Func.MT_ensGene	Gene.MT_ensGene	GeneDetail.MT_ensGene	ExonicFunc.MT_ensGene	AAChange.MT_ensGene
+chrM	65	65	C	T	upstream	RNR1;tRNA-Phe	dist=514		
+chrM	261	261	G	A	upstream	RNR1;tRNA-Phe	dist=318		
+chrM	751	751	A	G	ncRNA_exonic	RNR1			
+chrM	811	811	G	A	ncRNA_exonic	RNR1			
+chrM	888	888	G	A	ncRNA_exonic	RNR1			
+chrM	969	969	T	C	ncRNA_exonic	RNR1			
+chrM	1575	1575	G	A	ncRNA_exonic	RNR1			
+chrM	1701	1701	T	C	ncRNA_exonic	RNR2			
+chrM	1793	1793	G	A	ncRNA_exonic	RNR2			
+chrM	1865	1865	A	G	ncRNA_exonic	RNR2			
+chrM	2106	2106	G	A	ncRNA_exonic	RNR2			
+chrM	2258	2258	C	T	ncRNA_exonic	RNR2			
+chrM	2334	2334	G	A	ncRNA_exonic	RNR2			
+chrM	2636	2636	G	A	ncRNA_exonic	RNR2			
+chrM	3066	3066	T	C	ncRNA_exonic	RNR2			
+chrM	3239	3239	G	A	ncRNA_exonic	tRNA-Leu1			
+chrM	3243	3243	G	A	ncRNA_exonic	tRNA-Leu1			
+chrM	3518	3518	T	C	exonic	ND1		nonsynonymous SNV	ND1:ENST00000361390:exon1:c.T211C:p.Y71H
+chrM	4194	4194	T	C	exonic	ND1		nonsynonymous SNV	ND1:ENST00000361390:exon1:c.T887C:p.L296P
+chrM	4297	4297	G	A	ncRNA_exonic	tRNA-Ile			
+chrM	4451	4451	G	A	ncRNA_exonic	tRNA-Met			
+chrM	4770	4770	A	G	exonic	ND2		synonymous SNV	ND2:ENST00000361453:exon1:c.G300G:p.M100M
+chrM	6164	6164	T	C	exonic	COX1		nonsynonymous SNV	COX1:ENST00000361624:exon1:c.T260C:p.I87T
+chrM	6910	6910	G	A	exonic	COX1		nonsynonymous SNV	COX1:ENST00000361624:exon1:c.G1006A:p.A336T
+chrM	7029	7029	C	T	exonic	COX1		synonymous SNV	COX1:ENST00000361624:exon1:c.T1125T:p.A375A
+chrM	7520	7520	A	G	ncRNA_exonic	tRNA-Asp			
+chrM	7610	7610	T	C	exonic	COX2		synonymous SNV	COX2:ENST00000361739:exon1:c.T24C:p.G8G
+chrM	8071	8071	C	T	exonic	COX2		nonsynonymous SNV	COX2:ENST00000361739:exon1:c.C485T:p.S162L
+chrM	8103	8103	G	A	exonic	COX2		nonsynonymous SNV	COX2:ENST00000361739:exon1:c.G517A:p.D173N
+chrM	8637	8637	T	C	exonic	ATP6		nonsynonymous SNV	ATP6:ENST00000361899:exon1:c.T110C:p.L37P
+chrM	8834	8834	G	A	exonic	ATP6		nonsynonymous SNV	ATP6:ENST00000361899:exon1:c.G307A:p.A103T
+chrM	8861	8861	A	G	exonic	ATP6		synonymous SNV	ATP6:ENST00000361899:exon1:c.G334G:p.A112A
+chrM	9112	9112	T	C	exonic	ATP6		synonymous SNV	ATP6:ENST00000361899:exon1:c.T585C:p.I195I
+chrM	9451	9451	G	A	exonic	COX3		stopgain	COX3:ENST00000362079:exon1:c.G244A:p.G82X
+chrM	9485	9485	T	A	exonic	COX3		nonsynonymous SNV	COX3:ENST00000362079:exon1:c.T278A:p.F93Y
+chrM	9529	9529	C	T	exonic	COX3		nonsynonymous SNV	COX3:ENST00000362079:exon1:c.C322T:p.P108S
+chrM	9629	9629	G	A	exonic	COX3		nonsynonymous SNV	COX3:ENST00000362079:exon1:c.G422A:p.G141E
+chrM	9754	9754	G	A	exonic	COX3		nonsynonymous SNV	COX3:ENST00000362079:exon1:c.G547A:p.E183K
+chrM	10416	10416	T	A	ncRNA_exonic	tRNA-Arg			
+chrM	10526	10526	T	C	exonic	ND4L		nonsynonymous SNV	ND4L:ENST00000361335:exon1:c.T56C:p.M19T
+chrM	10802	10802	G	A	exonic	ND4		synonymous SNV	ND4:ENST00000361381:exon1:c.G42A:p.L14L
+chrM	11088	11088	T	C	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.T328C:p.F110L
+chrM	11185	11185	G	A	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.G425A:p.R142H
+chrM	11229	11229	T	C	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.T469C:p.S157P
+chrM	11270	11270	C	T	exonic	ND4		synonymous SNV	ND4:ENST00000361381:exon1:c.C510T:p.T170T
+chrM	11720	11720	G	A	exonic	ND4		synonymous SNV	ND4:ENST00000361381:exon1:c.A960A:p.G320G
+chrM	11826	11826	G	A	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.G1066A:p.A356T
+chrM	12102	12102	T	C	exonic	ND4		nonsynonymous SNV	ND4:ENST00000361381:exon1:c.T1342C:p.S448P
+chrM	12260	12260	T	C	ncRNA_exonic	tRNA-Ser2			
+chrM	12373	12373	G	A	exonic	ND5		synonymous SNV	ND5:ENST00000361567:exon1:c.G36A:p.L12L
+chrM	12386	12386	C	T	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.C49T:p.P17S
+chrM	13578	13578	T	C	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.T1241C:p.I414T
+chrM	13929	13929	G	A	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.G1592A:p.S531N
+chrM	13971	13971	G	A	exonic	ND5		nonsynonymous SNV	ND5:ENST00000361567:exon1:c.G1634A:p.S545N
+chrM	14364	14364	A	T	exonic	ND6		nonsynonymous SNV	ND6:ENST00000361681:exon1:c.T311A:p.L104Q
+chrM	14485	14485	T	C	exonic	ND6		nonsynonymous SNV	ND6:ENST00000361681:exon1:c.A190G:p.M64V
+chrM	14749	14749	T	C	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.T2C:p.M1T
+chrM	14794	14794	A	G	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.A47G:p.H16R
+chrM	15065	15065	A	C	exonic	CYTB		synonymous SNV	CYTB:ENST00000361789:exon1:c.A318C:p.S106S
+chrM	15116	15116	T	C	exonic	CYTB		synonymous SNV	CYTB:ENST00000361789:exon1:c.T369C:p.T123T
+chrM	15219	15219	A	G	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.A472G:p.T158A
+chrM	15245	15245	A	G	exonic	CYTB		synonymous SNV	CYTB:ENST00000361789:exon1:c.A498G:p.G166G
+chrM	15757	15757	G	A	exonic	CYTB		stopgain	CYTB:ENST00000361789:exon1:c.G1010A:p.W337X
+chrM	15759	15759	A	G	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.A1012G:p.I338V
+chrM	15832	15832	T	C	exonic	CYTB		nonsynonymous SNV	CYTB:ENST00000361789:exon1:c.T1085C:p.I362T
+chrM	16019	16019	T	C	ncRNA_exonic	tRNA-Pro			
+chrM	16232	16232	T	C	upstream;downstream	tRNA-Pro;CYTB;tRNA-Thr	dist=208;dist=278		
+chrM	16281	16281	A	G	upstream;downstream	tRNA-Pro;CYTB;tRNA-Thr	dist=257;dist=327		

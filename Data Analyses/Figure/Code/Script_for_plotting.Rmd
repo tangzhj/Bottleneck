@@ -1,0 +1,565 @@
+---
+title: "Script_for_poltting"
+output: html_document
+---
+
+##The number of somatic mtDNA mutations per cell. figure. 1c.
+```{r}
+library(dplyr)
+final<-read.table(".../Data for plotting/cell_mutation_count.txt",row.names=1,header = T,sep="\t")
+final$celltypes=factor(final$celltypes,levels=(c("HSC","LMPP","CLP","proB","preB","B","T","NK","CMP","GMP","MDP","pDC","mono","Ery")))
+
+p <- ggplot(final, aes(x=celltypes,y=mucount)) +     
+  geom_violin(aes(fill=celltypes),width = 1.1)
+p <- p + theme_bw() + scale_y_continuous(limits =c(0,15),breaks = seq(0,15,2)) + 
+  theme(
+    panel.grid = element_blank(),  
+    panel.border = element_blank(), 
+    axis.line = element_line(size =1.2,colour = "black"), # 
+    axis.ticks.length=unit(1.2, "pt"),  # 
+    axis.ticks = element_line(size =1.2,colour = "black"), 
+    axis.text.y = element_text(face="bold",size = 12,colour="black"),
+    axis.text.x = element_text(face="bold",size = 12,colour="black"),
+    axis.title.x = element_text(face="bold",size = 12),
+    axis.title.y = element_text(size =12,face="bold"),
+    legend.title = element_text(face="bold",size=12),
+    legend.text=element_text(face="bold",size=12))+
+labs(x="",y="mutation counts",fill="Group",title="mutation counts for all cell tyeps") +  
+  guides(fill=F)  
+p
+ggsave(p ,filename = ".../mutation_percells.pdf",width = 20,height = 5)
+
+####wilcox test
+final<-read.table(".../Data for plotting/cell_mutation_count.txt",row.names=1,header = T,sep="\t")
+#final$celltypes=factor(final$celltypes,levels=(c("HSC","LMPP","CLP","proB","preB","B","T","NK","CMP","GMP","MDP","pDC","mono","Ery")))
+progenitor=final$mucount[which(final$celltypes=="HSC"|final$celltypes=="LMPP"|final$celltypes=="CLP")]
+lymphocyte=final$mucount[which(final$celltypes=="proB"|final$celltypes=="preB"|final$celltypes=="T"|final$celltypes=="B"|final$celltypes=="NK")]
+#lymphocyte=final$mucount[which(final$celltypes=="proB"|final$celltypes=="preB")]
+myeloid=final$mucount[which(final$celltypes=="CMP"|final$celltypes=="GMP"|final$celltypes=="MDP"|final$celltypes=="pDC"|final$celltypes=="Mono"|final$celltypes=="Eryth")]
+progenitor_lymphocyte <- data.frame( 
+                group = c(rep("pro",length(progenitor)), rep("lym",length(lymphocyte))),
+                weight = c(progenitor,  lymphocyte)
+                )
+
+myeloid_lymphocyte <- data.frame( 
+                group = c(rep("mye",length(myeloid)), rep("lym",length(lymphocyte))),
+                weight = c(myeloid,  lymphocyte)
+                )
+res <- wilcox.test(weight ~ group, data = myeloid_lymphocyte, var.equal = TRUE)
+res
+res <- wilcox.test(weight ~ group, data = progenitor_lymphocyte, var.equal = TRUE)
+res
+
+```
+##%mt reads. figure. 1e.
+```{r}
+count<-read.table(".../Data for plotting/proj_res1_annotation_result.txt",row.names = NULL,header = F,sep="\t")#Cluster_reads_result_8X.txt
+C1 = count[which(count[,1]=="HSC/MPP"),]
+C2 = count[which(count[,1]=="LMPP"),]
+C3 = count[which(count[,1]=="CLP"),]
+C4 = count[which(count[,1]=="pro-B"),]
+C5 = count[which(count[,1]=="preB"),]
+C6 = count[which(count[,1]=="NaiveB"|count[,1]=="memoryB"|count[,1]=="plasma"),]
+C9 = count[which(count[,1]=="CMP"),]
+C10 = count[which(count[,1]=="GMP"),]
+C11= count[which(count[,1]=="MDP"),]
+C12 = count[which(count[,1]=="pDC"),]
+C13 = count[which(count[,1]=="Early.Eryth"|count[,1]=="Late.Eryth"|count[,1]=="Early.Baso"),]
+C16 = count[which(count[,1]=="CD4 Naive"|count[,1]=="CD8 Naive"|count[,1]=="CD4 mem"|count[,1]=="CD8 mem"),]
+C20 = count[which(count[,1]=="NK"),]
+C21 = count[which(count[,1]=="CD14.Mono"|count[,1]=="CD16.Mono"),]
+type_C1 = as.vector(C1[,3])
+type_C2= as.vector(C2[,3])
+type_C3 = as.vector(C3[,3])
+type_C4 = as.vector(C4[,3])
+type_C5 = as.vector(C5[,3])
+type_C6 = as.vector(C6[,3])
+type_C9 = as.vector(C9[,3])
+type_C10 = as.vector(C10[,3])
+type_C11 = as.vector(C11[,3])
+type_C12 = as.vector(C12[,3])
+type_C13 = as.vector(C13[,3])
+type_C16 = as.vector(C16[,3])
+type_C20 = as.vector(C20[,3])
+type_C21 = as.vector(C21[,3])
+plot_data <- data.frame(g_num=c(type_C1,type_C2,type_C3,type_C4,type_C5,type_C6,type_C9,type_C10,type_C11,type_C12,type_C13,type_C16,type_C20,type_C21),stage=c(rep("HSC/MPP",length(type_C1)),rep("LMPP",length(type_C2)),rep("CLP",length(type_C3)),rep("proB",length(type_C4)),rep("preB",length(type_C5)),rep("B",length(type_C6)),rep("CMP",length(type_C9)),rep("GMP",length(type_C10)),rep("MDP",length(type_C11)),rep("pDC",length(type_C12)),rep("Ery",length(type_C13)),rep("T",length(type_C16)),rep("NK",length(type_C20)),rep("Mono",length(type_C21))))
+
+plot_data$stage=factor(plot_data$stage,levels=(c("HSC/MPP","LMPP","CLP","proB","preB","B","T","NK","CMP","GMP","MDP","pDC","Mono","Ery")))
+p <- ggplot(plot_data, aes(x=stage,y=g_num)) +     
+  geom_boxplot(aes(fill=stage))  
+p <- p + theme_bw() + 
+  scale_y_continuous(limits =c(0,0.8),breaks = seq(0,0.8,0.1)) +
+  theme(
+    panel.grid = element_blank(),   
+    panel.border = element_blank(),  
+    axis.line = element_line(size =1.2,colour = "black"), 
+    axis.ticks.length=unit(2, "pt"),  
+    axis.ticks = element_line(size =1.2,colour = "black"),  
+    axis.text.y = element_text(face="bold",size = 12,colour="black"), 
+    axis.text.x = element_text(face="bold",size = 12,colour="black"),
+    axis.title.x = element_text(face="bold",size = 12),
+    axis.title.y = element_text(size =12,face="bold"),
+    legend.title = element_text(face="bold",size=12),
+    legend.text=element_text(face="bold",size=12))+
+labs(x="",y="%mt reads",fill="Group") +  
+  guides(fill=F)  
+p
+ggsave(p,filename = ".../mt_percentage_mergecell.pdf",width = 20,height = 5)
+```
+## Allele frequency spectrum of somatic mtDNA mutations. figure. 1d.
+```{r}
+aa<-read.table(".../Samplename.txt",sep="\n")
+counts1 = 0
+counts2 = 0
+all = c()
+cellnumber = 0
+aaa = as.matrix(aa)
+for ( i in aaa){
+  cellname = i
+  path = ".../matrix/"
+  matrit_name = paste(path,cellname,"_matrix_variation.txt",sep="")
+  site_name = paste(path,cellname,"_Site_infor.txt",sep="")
+  a<-read.table(matrit_name,row.names=1,header = T,stringsAsFactors = FALSE)
+head(a)
+last_col=length(a[1,]) # got the index of last column 
+# filter cells with average coverage > 8X 
+deep = 8
+a_filter<-subset(a,a[,last_col]>deep)
+dep = sum(a[,last_col])/dim(a)[1]
+## need to transfer na into null, there are problems for numbers. 
+d<-as.matrix(a_filter[,1:(last_col-1)])
+name<-read.table(site_name)
+name=gsub("\\/",".",name[,1])
+name=gsub(":",".",name)
+d_varition=d[,name]
+ rownames = (rownames(d_varition))
+d_varition=apply(d_varition,2,as.numeric)
+f1=function(x){
+m=((length(which(x>=0.9))/length(x!="na"))>=0.5)#filter mutationS with 90% cells VAF>0.5. 
+return(m)
+}
+
+f2=function(x){
+m=(length(which(x==0))/length(x)==1)
+return(m)
+}
+
+f3=function(x){#remove empty cell sample
+m=(length(which(x==0))/length(x)==1)
+return(m)
+}
+
+
+ff=function(x){
+  m=length(which((x==1)))
+  return(m)
+}
+fff=function(x){
+  m=length(which((x<=0.1&x>0)))
+  return(m)
+}
+ hname=function(x){
+   n=length(which(x>=0.9))
+   return(n)
+ }
+ lname=function(x){
+   n=length(which(x<=0.2))
+   return(n)
+ }
+
+highname= which(apply(d_varition,2,hname)=="1")
+print(paste("cellname",i))
+assign(paste(i,"Hname", sep = ""),highname)
+
+lowname= which(apply(d_varition,2,lname)>0)
+
+assign(paste(i,"Lname", sep = ""),lowname)
+
+dd = apply(d_varition,2,f1)
+if (length(which(dd=="TRUE"))>1){
+rm_colnames=paste(colnames(d_varition[,dd]),collapse="|")
+d_varition=d_varition[,-grep(rm_colnames,colnames(d_varition))]
+}
+else if(length(which(dd=="TRUE"))==1){
+rm_colnames=colnames(d_varition)[which(dd=="TRUE")]
+d_varition=d_varition[,-grep(rm_colnames,colnames(d_varition))]#use grep index
+}
+ rownames(d_varition) = rownames
+ dim(d_varition)
+
+
+d2 = apply(d_varition,2,f2)#delete empty column in matrix
+Rname = which(d2=="TRUE")
+if(length(Rname)>0){
+d_varition = d_varition[,-Rname]
+}
+
+d3 = apply(d_varition,1,f3)
+Rname2 = which(d3=="TRUE")
+if(length(Rname2)>0){
+d_varition = d_varition[-Rname2,]
+}
+
+d_varition[is.na(d_varition)] <- 0
+assign(paste(i,"allname", sep = ""),colnames(d_varition))
+cellnumber = cellnumber + dim(d_varition)[1]
+print(cellnumber)
+d_varition1=as.vector(d_varition)
+d_varition1=d_varition1[which(d_varition1!=0)]
+all = c(all,d_varition1)
+}
+freq=data.frame(freq=all)
+p=ggplot(freq,aes(x=freq))+
+  geom_histogram(
+                 binwidth = 0.1,
+                 fill="#69b3a2",##69b3a2
+                 color="#e9ecef",##e9ecef
+                 alpha=0.9,
+                 breaks=seq(0,1,0.1))+ 
+  theme_bw()+
+  labs(x="Frequence",y="Count",title=paste(cellname," Cells:",cellnumber,sep=""))+
+  theme(plot.title = element_text(size = 18, vjust = 0.5, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(size=18,colour="black", face = "bold"),          
+        axis.text.y = element_text(size=18,colour="black", face = "bold"),
+        axis.title.x = element_text(size=14, face = "bold"), 
+        axis.title.y = element_text(size=14, face = "bold"),
+        panel.background = element_blank(),
+        
+        line = element_line(size=1),
+        axis.line = element_line(size =1.0,colour = "black"),
+        panel.grid.major =element_blank(), panel.grid.minor = element_blank())+scale_x_continuous(limits = c(0,1),
+                     breaks = seq(0,1,0.5))
+ggsave(p,filename = paste(".../",cellname,"_",deep,"x.pdf",sep=""),width=5,heigh=5)
+```
+##Signals of purifying selection at specific mtDNA genomic sites. figure. 4
+```{r}
+library("RColorBrewer")
+library("ggplot2")
+mono<-read.table("./mono_ratio.txt",header = T,stringsAsFactors = FALSE,row.names = 1)
+
+A = mono$b/(mono$a+mono$b)
+B = mono$d/(mono$c+mono$d)
+AA = as.vector(A[(A+B)>=0])
+BB = as.vector(B[(A+B)>=0])
+mono$b_rate = mono$b/(mono$a+mono$b)
+mono$d_rate = mono$d/(mono$c+mono$d)
+mono1=subset(mono,(b_rate+d_rate>=0))   #equal AA and BB
+head(mono1)
+dim(mono1)
+tbnk<-read.table("./tbnk_ratio.txt",header = T,stringsAsFactors = FALSE,row.names = 1)
+J = tbnk$bb/(tbnk$aa+tbnk$bb)
+K = tbnk$dd/(tbnk$cc+tbnk$dd)
+JJ = as.vector(J[(J+K)>=0])
+KK = as.vector(K[(J+K)>=0])
+tbnk$bb_rate = tbnk$bb/(tbnk$aa+tbnk$bb)
+tbnk$dd_rate = tbnk$dd/(tbnk$cc+tbnk$dd)
+tbnk1=subset(tbnk,(bb_rate+dd_rate>=0))
+head(tbnk1)
+dim(tbnk1)
+
+##filter variants to label.
+#texts =c(rep("",232),"1344",rep("",12),"2646","","","3209:A.G","16266",rep("",107))
+site_label=c(rownames(mono1),rownames(tbnk1))
+lineage = c(rep("MONO",length(AA)),rep("TBNK",length(JJ)))
+result = data.frame(all_LMPP=c(mono1$b_rate,tbnk1$bb_rate),TBNK_MONO=c(mono1$d_rate,tbnk1$dd_rate),lineage)
+
+result$label=rep("",dim(result)[1])
+index1=which(result$all_LMPP>0.05 & result$TBNK_MONO<0.3)
+result$label[index1]=site_label[index1]
+index2=which(result$all_LMPP<0.3 & result$TBNK_MONO>0.3)
+result$label[index2]=site_label[index2]
+
+head(result)
+length(site_label)==dim(result)[1]
+result1=subset(result,subset=lineage=="MONO")
+result2=subset(result,subset=lineage=="TBNK")
+dim(result)
+dim(result1)
+dim(result2)
+
+##myeloid figure.
+library(ggrepel)
+ccc = ggplot(result1, aes(x = all_LMPP, y = TBNK_MONO, colour = lineage)) +
+  geom_point(alpha=0.9,size = 2.5) +
+  geom_abline(intercept = 0, slope = 1,linetype="dashed",color="black",size=0.75)+
+  #geom_hline(yintercept = 0.18,color="black",size=0.5,linetype="dashed")+
+  #geom_vline(xintercept = 0.26,color="black",size=0.5,linetype="dashed")+
+  scale_colour_manual(values = "#22AC38") +
+  #scale_colour_brewer(palette = "Set1") +
+  #geom_smooth(se=F,method=lm) +                  #method = lm
+geom_text_repel(aes(x = all_LMPP, y = TBNK_MONO,label = label),size = 3, show.legend = FALSE,hjust = 0, nudge_x = 0.01) +
+  scale_y_continuous(limits =c(0,0.6),breaks = seq(0,0.6,0.1)) +
+  scale_x_continuous(limits =c(0,0.6),breaks = seq(0,0.6,0.1)) +
+theme(plot.title = element_text(size = 10,face = "bold", vjust = 0.5, hjust = 0.5),
+        axis.text.x = element_text(size=12, face = "bold",colour="black"),          axis.text.y = element_text(size=12, face = "bold",colour="black"),
+        axis.title.x = element_text(size=12, face = "bold"), 
+        axis.title.y = element_text(size=12, face = "bold"),
+        panel.background = element_blank(),
+        line = element_line(size=1),
+        axis.line = element_line(size =1.0,colour = "black"),
+        legend.title = element_text(size=12, face = "bold",colour="black"),
+        legend.text = element_text(size = 12, face = "bold",colour="black"),
+        legend.position = 'right',
+        legend.key.size=unit(0.7,'cm')) +
+  labs(x="Rate1 (frequence >0.5 cell persentage in LMPP)",y="Rate2 (frequence >0.5 cell persentage in xxx)",colour="Lineage")
+ccc
+ggsave(ccc,filename = "point1.pdf",width=9,height = 4)
+
+##lymphocyte figure
+cc = ggplot(result2, aes(x = all_LMPP, y = TBNK_MONO, colour = lineage)) +
+  geom_point(alpha=0.9,size = 2.5) +
+  geom_abline(intercept = 0, slope = 1,linetype="dashed",color="black",size=0.75)+
+  #geom_hline(yintercept = 0.18,color="black",size=0.5,linetype="dashed")+
+  #geom_vline(xintercept = 0.26,color="black",size=0.5,linetype="dashed")+
+  scale_colour_manual(values = "#DB8276") +
+  #scale_colour_brewer(palette = "Set2") +
+  #geom_smooth(se=F,method=lm) +                  #method = lm
+#geom_text_repel(aes(label = label),size = 3, show.legend = FALSE,hjust = 0, nudge_x = 0.01) +
+geom_text_repel(aes(x = all_LMPP, y = TBNK_MONO,label = label),size = 3, show.legend = FALSE,hjust = 0, nudge_x = 0.01) +
+  scale_y_continuous(limits =c(0,0.6),breaks = seq(0,0.6,0.1)) +
+  scale_x_continuous(limits =c(0,0.6),breaks = seq(0,0.6,0.1)) +
+theme(plot.title = element_text(size = 10,face = "bold", vjust = 0.5, hjust = 0.5),
+        axis.text.x = element_text(size=12, face = "bold",colour="black"),          axis.text.y = element_text(size=12, face = "bold",colour="black"),
+        axis.title.x = element_text(size=12, face = "bold"), 
+        axis.title.y = element_text(size=12, face = "bold"),
+        panel.background = element_blank(),
+        
+        line = element_line(size=1),#X Y 轴上的断点大小
+        axis.line = element_line(size =1.0,colour = "black"),
+        
+        legend.title = element_text(size=12, face = "bold",colour="black"),
+        legend.text = element_text(size = 12, face = "bold",colour="black"),
+        legend.position = 'right',
+        legend.key.size=unit(0.7,'cm')) + #图例正方形的大小
+  labs(x="Rate1 (frequence >0.5 cell persentage in LMPP)",y="Rate2 (frequence >0.5 cell persentage in xxx)",colour="Lineage")
+ggsave(cc,filename = "point2.pdf",width=9,height = 4)
+
+```
+## %cell with variations. figure. S1b.
+```{r}
+file<-read.table(".../Data for plotting/cell_num_with_variation_final.txt",row.names=1,header = T,sep="\t")
+
+yes = cbind(rownames(file),file$variation_num/file$sample_num,rep("yes",length(file$variation_num)))
+no = cbind(rownames(file), file$no_variation_num/file$sample_num,rep("no",length(file$no_variation_num)))
+#all_yes_no = rbind(yes,no)
+all_yes_no = yes
+all_yes_no = data.frame(all_yes_no)
+colnames(all_yes_no) = c("celltypes","var_num","station")
+all_yes_no$celltypes=factor(all_yes_no$celltypes,levels=(c("HSC","LMPP","CLP","proB","preB","B","T","NK","CMP","GMP","MDP","pDC","Mono","Eryth")))
+
+all_yes_no$station=factor(all_yes_no$station,levels=rev(c("no","yes")))
+
+p2=ggplot(all_yes_no, aes(x=celltypes, y=as.numeric(var_num), fill=station)) +
+    geom_bar(stat = "identity")
+p2=p2 + theme_bw() + 
+
+  theme(
+    panel.grid = element_blank(),   
+    panel.border = element_blank(),  
+    axis.line = element_line(size =1.2,colour = "black"),
+    axis.ticks.length=unit(6, "pt"), 
+    axis.ticks = element_line(size =1.2,colour = "black"),  
+    axis.text.y = element_text(face="bold",size = 12,colour="black"), 
+    axis.text.x = element_text(face="bold",size = 12,colour="black"),
+    axis.title.x = element_text(face="bold",size = 12),
+    axis.title.y = element_text(size =12,face="bold"),
+    legend.title = element_text(face="bold",size=12),
+    legend.text=element_text(face="bold",size=12))+
+labs(x="cell types",y="cell num with variation",title=cellname,fill="Group")
+p2
+ggsave(p2,file = ".../cell_num_with_with_mutation.pdf",width = 10,height = 5)
+```
+##The allele frequency spectrum of somatic mtDNA mutations for different types. figure. S4
+```{r}
+file = read.table("./annotation_scATACseq2.txt")
+filelist = as.matrix(file)
+for (i in filelist){
+path1 = paste(".../Data for plotting/matrix/",i,"_variation_filter.txt",sep="")
+path2 = paste(".../Data for plotting/annovar_result/",i,".site_infor.txt.hg19_multianno.txt",sep="")  
+a<-read.table(path1,header = T,sep="\t")
+b<-read.table(path2,header = T,sep="\t")
+assign(paste(i,"Loop_site", sep = ""),f(a,b)[1]);
+assign(paste(i,"rRNA_site", sep = ""),f(a,b)[2]);
+assign(paste(i,"tRNA_site", sep = ""),f(a,b)[3]);
+assign(paste(i,"conding_site", sep = ""),f(a,b)[4]);
+assign(paste(i,"NS_site", sep = ""),f(a,b)[5]);
+assign(paste(i,"SY_site", sep = ""),f(a,b)[6]);
+}
+
+f_A_G = function(a){
+  c = a[,grep("*C.T",colnames(a))]
+  return(c)
+}
+f = function(a,b){
+Loop_site = b[grep(pattern="upstream",b$Func.MT_ensGene),2]-1
+rRNA_site = b[grep(pattern="ncRNA_exonic RNR",paste(b$Func.MT_ensGene,b$Gene.MT_ensGene)),2]-1
+tRNA_site = b[grep(pattern="ncRNA_exonic tRNA",paste(b$Func.MT_ensGene,b$Gene.MT_ensGene)),2]-1
+conding_site = b[grep(pattern="^exonic",paste(b$Func.MT_ensGene,b$Gene.MT_ensGene)),2]-1
+NS_site = b[grepl(pattern="^nonsynonymous SNV|^stopgain|^stoploss",b$ExonicFunc.MT_ensGene),2]-1
+SY_site = b[grep(pattern="^synonymous SNV",b$ExonicFunc.MT_ensGene),2]-1
+name1 = colnames(a)
+name1 = as.matrix(name1)
+
+f_freq = function(Loop_site,name1){#matrix for each cell types
+lit1 = list()
+cc = ""
+for (i in Loop_site){
+ s  = paste("\\.",i,"\\.",sep="")
+  c=grep(s,name1[,1],value=F)
+  cc <- c(cc,c)
+}
+cc=as.numeric(cc[-1])
+
+loop_matrix  = a[,name1[as.numeric(cc[as.numeric(which(cc!=""))])]]
+loop_matrix = as.matrix(loop_matrix)
+d_varition1=as.vector(loop_matrix)
+d_varition1=d_varition1[which(d_varition1!=0)]
+freq=data.frame(freq=d_varition1)
+return(freq)
+}
+
+Loop_freq = f_freq(Loop_site[1],name1)
+rRNA_freq = f_freq(rRNA_site,name1)
+tRNA_freq = f_freq(tRNA_site,name1)
+conding_freq= f_freq(conding_site,name1)
+NS_freq = f_freq(NS_site,name1)
+SY_freq = f_freq(SY_site,name1)
+
+f_count = function(freq){
+count = c(length(which(freq<=0.1&freq>0)),length(which(freq<=0.2&freq>0.1)),length(which(freq<=0.3&freq>0.2)),length(which(freq<=0.4&freq>0.3)),
+length(which(freq<=0.5&freq>0.4)),length(which(freq<=0.6&freq>0.5)),length(which(freq<=0.7&freq>0.6)),length(which(freq<=0.8&freq>0.7)),length(which(freq<=0.9&freq>0.8)),length(which(freq<=1&freq>0.9)))
+return(count)
+}
+
+#caculate num of mutations in each bin.
+Loop_count = f_count(Loop_freq)
+rRNA_count = f_count(rRNA_freq)
+tRNA_count = f_count(tRNA_freq)
+conding_count = f_count(conding_freq)
+NS_count = f_count(NS_freq)
+SY_count = f_count(SY_freq)
+
+return(list(Loop_count,rRNA_count,tRNA_count,conding_count,NS_count,SY_count))
+}#This is a big function.
+
+Loop_count=0
+rRNA_count=0
+tRNA_count=0
+conding_count=0
+NS_count=0
+SY_count=0
+
+
+for (i in filelist){
+  Loop_count = Loop_count+unlist(get(paste(i,"Loop_site",sep = "")))
+  rRNA_count = rRNA_count+unlist(get(paste(i,"rRNA_site",sep = "")))
+  tRNA_count = tRNA_count+unlist(get(paste(i,"tRNA_site",sep = "")))
+  conding_count = conding_count+unlist(get(paste(i,"conding_site",sep = "")))
+  NS_count = NS_count+unlist(get(paste(i,"NS_site",sep = "")))
+  SY_count = SY_count+unlist(get(paste(i,"SY_site",sep = "")))
+  
+}
+
+all_loop=sum(Loop_count)
+all_rRNA=sum(rRNA_count)
+all_tRNA=sum(tRNA_count)
+all_conding=sum(conding_count)
+all_NS = sum(NS_count)
+all_SY = sum(SY_count)
+#all_rRNA=sum(rRNA_count)
+#all=rowSums(all_count)
+
+loop_pro=Loop_count/all_loop
+rRNA_pro=rRNA_count/all_rRNA
+tRNA_pro=tRNA_count/all_tRNA
+conding_pro=conding_count/all_conding
+#NS_pro=NS_count/(NS_count+SY_count)
+#SY_pro=SY_count/(NS_count+SY_count)
+NS_pro=NS_count/(all_NS)
+SY_pro=SY_count/(all_SY)
+plot_data=data.frame(x_label=rep(c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1"),6),pro=c(loop_pro,rRNA_pro,tRNA_pro,conding_pro,NS_pro,SY_pro),
+                     label=c(rep("loop",10),rep("rRNA",10),rep("tRNA",10),rep("conding",10),rep("NS",10),rep("SY",10)))
+plot_data$label=factor(plot_data$label,levels = c("loop","tRNA","rRNA","conding","NS","SY"))
+
+##plot_data
+all_loop=sum(Loop_count)
+all_rRNA=sum(rRNA_count)
+all_tRNA=sum(tRNA_count)
+all_conding=sum(conding_count)
+all_NS = sum(NS_count)
+all_SY = sum(SY_count)
+#all_rRNA=sum(rRNA_count)
+#all=rowSums(all_count)
+loop_pro=Loop_count/all_loop
+rRNA_pro=rRNA_count/all_rRNA
+tRNA_pro=tRNA_count/all_tRNA
+conding_pro=conding_count/all_conding
+#NS_pro=NS_count/(NS_count+SY_count)
+#SY_pro=SY_count/(NS_count+SY_count)
+NS_pro=(NS_count/3.43)/(all_NS/3.43)
+SY_pro=SY_count/(all_SY)
+
+
+plot_data=data.frame(x_label=rep(c("0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1"),6),pro=c(loop_pro,rRNA_pro,tRNA_pro,conding_pro,NS_pro,SY_pro),
+                     label=c(rep("loop",10),rep("rRNA",10),rep("tRNA",10),rep("conding",10),rep("NS",10),rep("SY",10)))
+plot_data$label=factor(plot_data$label,levels = c("loop","tRNA","rRNA","conding","NS","SY"))
+
+##The distribution of variant allele frequency for mutations in different mtDNA genomic regions.
+library(RColorBrewer)
+mycolor=colorRampPalette(brewer.pal(6,"Spectral"))
+p=ggplot(plot_data) +
+  #geom_line() +
+    geom_line(aes(x=x_label, y=pro, group=label,stat ='identity',color=label,linetype=label),size=0.6,alpha=1) +
+  scale_linetype_manual(values = c(1,1,1,1,2,2),guide=F) +
+    geom_jitter(height = 0, width = 0.1,aes(x=x_label, y=pro, color=label,shape=label),size=2) + 
+  scale_shape_manual(values=c(16,16,16,16,17,17),guide=F ) + 
+  #scale_color_brewer (palette = "Spectral")
+  scale_color_manual(values = rev(mycolor(6)))
+p=p + theme_bw() +
+  theme(
+    panel.grid = element_blank(),  
+    panel.border = element_blank(),  
+    axis.line = element_line(size =2,colour = "black"),
+    axis.ticks.length=unit(6, "pt"),
+    axis.ticks = element_line(size =1.3,colour = "black"),
+    axis.text.y = element_text(face="bold",size = 14,colour="black"), 
+    axis.text.x = element_text(face="bold",size = 14,colour="black"),
+    axis.title.x = element_text(face="bold",size = 14),
+    axis.title.y = element_text(size =14,face="bold"),
+    legend.title = element_text(face="bold",size=14),
+    legend.text=element_text(face="bold",size=14))+
+labs(x="",y="Percentage",color="Group",title="sup_myloid") + 
+
+    guides( color = guide_legend(override.aes =list(linetype=c(1,1,1,1,2,2), shape=c(16,16,16,16,17,17))))
+p
+ggsave(p,filename = ".../sup_myloid.pdf",width = 10,height = 5)
+
+##The dN/dS ratio for mutations in different VAF bins.
+ds = NS_count/(SY_count*3.43)##3.43 was caculated by PAML.See 8.Annotation of michondrial DNA mutations file. 
+ds[is.infinite(ds)]=NA
+plot_data=data.frame(x_label=seq(0.1,1,0.1),pro=ds)
+library(RColorBrewer)
+mycolor=colorRampPalette(brewer.pal(6,"Spectral"))
+p=ggplot(plot_data) +
+    geom_point(aes(x=x_label, y=pro),size=3,color="red") +
+  geom_hline(yintercept = 1,color="green",size=1,linetype="dashed")
+
+p=p + theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_blank(), 
+    axis.line = element_line(size =1.3,colour = "black"),
+    axis.ticks.length=unit(6, "pt"), 
+    axis.ticks = element_line(size =1.4,colour = "black"), 
+    axis.text.y = element_text(face="bold",size = 14,colour="black"), 
+    axis.text.x = element_text(face="bold",size = 14,colour="black"),
+    axis.title.x = element_text(face="bold",size = 14),
+    axis.title.y = element_text(size =12,face="bold"),
+    legend.title = element_text(face="bold",size=14),
+    legend.text=element_text(face="bold",size=12))+
+labs(x="",y="dn/ds",title="sup_myloid")
+p = p+scale_x_continuous(limits = c(0.1,1),breaks = seq(0.1,1,0.1))+scale_y_continuous(limits = c(0,3),breaks = seq(0,4,0.5))
+p
+ggsave(p,filename = ".../sup_myloid_ratio.pdf",width = 10,height = 5)
+
+```

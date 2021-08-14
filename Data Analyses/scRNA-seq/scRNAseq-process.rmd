@@ -1,0 +1,395 @@
+--- 
+title: "scRNAseq-process"
+output: html_document
+---
+
+## Seurat project
+```{r}
+##Read file from Jeffrey M. Granja et al.
+ArchR <- readRDS(file = ".../scRNA-Hematopoiesis-Granja-2019.rds")
+pbmc.data = ArchR@assays$data$counts
+pbmc <- CreateSeuratObject(counts = pbmc.data,  min.cells = 3, min.features = 200)
+pbmc
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 3500 & percent.mt < 20)
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
+pbmc <- NormalizeData(pbmc)
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 3000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+all.genes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+#PCA
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
+VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
+DimPlot(pbmc, reduction = "pca")
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+pbmc <- JackStraw(pbmc, num.replicate = 100,dims = 50)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:50)
+JackStrawPlot(pbmc, dims = 1:50)
+ElbowPlot(pbmc,ndims = 50, reduction = "pca")
+pbmc <- FindNeighbors(pbmc, dims = 1:45,k.param = 10)
+pbmc <- FindClusters(pbmc, resolution = 0.3)
+head(Idents(pbmc), 5)
+pbmc <- RunUMAP(pbmc, dims = 1:45,min.dist = 1)
+DimPlot(pbmc, reduction = "umap",label = T,group.by = "RNA_snn_res.0.3")
+DimPlot(pbmc, reduction = "umap",label = T,group.by = "seurat_clusters")
+DimPlot(pbmc, reduction = "umap",label = T,group.by = "orig.ident")
+markerGenes =  c("LEF1","CD19","MS4A1","CD79A","CD79B","EBF1","CD27","CD22","CR2","DNTT","RAG1","RAG2","CD34","IL7R","MME","CD38","THY1","CD7","FLT3","IL4R","CEBPB","PAX5","POLD1","POLG","POLG2","ITGA6","CSF1R","NCAM1","PTPRC","FCGR3B","FCGR3A","NKG7","GNLY","CD4","CD8A","S100A4","CCR7","SPIB","PPBP","CD14","AVP","HLF","CRHBP","DERL3","CD79B","GATA1","SPI1","MPO","CLEC9A","SH2D1A","CLEC4C","SIGLEC10","IRF8","BCL11A")
+
+pdf(".../ArchR_marker.pdf")
+for (i in markerGenes){
+  aa = FeaturePlot(pbmc, features = i)
+  print(aa)
+}
+dev.off()
+
+seRNA <- readRDS("/public/home/Chenzh275/Data/tzj/scRNAseq&ATAC/scRNA-Hematopoiesis-Granja-2019.rds")
+
+newannotation = c("01_HSC","02_Early.Eryth","03_Late.Eryth","04_Early.Baso","05_LMPP","06_CLP","07_GMP","07_GMP","08_pDC","09_cDC","10_CD14.Mono","10_CD14.Mono","11_CD16.Mono","11_CD16.Mono","13_proB","14_preB","15_naiveB","16_Plasma","17_CD8.N","18_CD4.N","18_CD4.N","19_CD4.M","20_CD8.M","20_CD8.M","21_NK","22_B","23_B")
+pbmc@meta.data$newcluster = as.character(pbmc@meta.data$seurat_clusters) 
+for (i in c(0:26) ){
+cell = names(table(colData(seRNA)$BioClassification))[i]
+cellbarcords = seRNA@assays[[".->data"]]@listData[["counts"]]@Dimnames[[2]][colData(seRNA)$BioClassification==cell]
+pbmc@meta.data$newcluster[unlist(pbmc@assays$RNA@counts@Dimnames[2])%in%cellbarcords] = newannotation[i]
+}
+DimPlot(pbmc,dims = c(1,2),reduction = "umap",label = T,group.by = "seurat_clusters")
+DimPlot(pbmc,dims = c(1,2), reduction = "umap",label = T,group.by = "orig.ident")
+DimPlot(pbmc,dims = c(1,2), reduction = "umap",label = T,group.by = "newcluster")
+
+new.cluster.ids <- c("CD4.N","CD4.N","CD14.Mono","CD14.Mono","CD4.M","NK","CD14.Mono","CD4.M","LMPP","GMP","naiveB",
+"HSC","CD4.M","HSC","CD8.M","GMP","CD14.Mono","CD8.N","Early.Ery","CD8.N","CD8.M",
+"Late.Ery","NK","B","CD8.M","ImmatureB","CD16.Mono","pDC","HSC","CMP","MDP",
+"proB","proB","CD16.Mono","cDC","LMPP","CD8.M","CLP","preB","GMP","CLP",
+"CMP","Earyl.Baso","CD8.M","B","Early.Ery","Late.Ery","Plasma","CD4.M")
+names(new.cluster.ids) <- levels(pbmc$cluster3)
+pbmc@active.ident = pbmc$cluster3
+pbmc <- RenameIdents(pbmc, new.cluster.ids)
+Idents(pbmc) <- factor(Idents(pbmc),levels = 
+c("HSC","LMPP","CLP","proB","preB","ImmatureB","naiveB","B","Plasma","CD8.N","CD4.N","CD4.M","CD8.M","NK","Early.Ery","Late.Ery","Earyl.Baso","CMP","GMP","MDP","pDC","cDC","CD14.Mono","CD16.Mono"))
+pbmc@meta.data$cluster4 = pbmc@active.ident
+saveRDS(pbmc, file = ".../scRNA_res2_annotation.rds")
+##Use Magic  to rescue expression
+pbmc2 <- readRDS(file = "/public/home/tangzj/R/scRNAseq/ArchR-BBMC/scRNA_res2_annotation.rds")
+all.genes <- rownames(pbmc)
+MAGIC_pbmc2 <- magic(pbmc, genes="all_genes")
+DefaultAssay(MAGIC_pbmc2) <- "MAGIC_RNA"
+MAGIC_pbmc2 <- ScaleData(MAGIC_pbmc2, features = all.genes)
+saveRDS(MAGIC_pbmc2, file = "/public/home/shipy3/tzj/scRNAseq/scRNA_res2_annotation_magic.rds")
+
+## subset progenitor cells
+DefaultAssay(pbmc2) <- "RNA"
+pbmc <- subset(pbmc2,subset = cluster3 %in% c('9',"39","15"))
+pbmc <- DietSeurat(
+  object=pbmc,
+  counts=TRUE,
+  data=TRUE,
+  scale.data=FALSE,
+  assays="RNA"
+  )
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 3000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+
+allgenes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+#PCA
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
+VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
+DimPlot(pbmc, reduction = "pca")
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+pbmc <- JackStraw(pbmc, num.replicate = 100,dims = 20)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:20)
+JackStrawPlot(pbmc, dims = 1:20)
+ElbowPlot(pbmc,ndims = 20, reduction = "pca")
+pbmc <- FindNeighbors(pbmc, dims = 1:19,k.param = 10)
+pbmc <- FindClusters(pbmc, resolution = 0.3)
+head(Idents(pbmc), 5)
+pbmc <- RunUMAP(pbmc, dims = 1:19,min.dist = 0.6)
+DimPlot(pbmc, reduction = "umap",label = T,group.by = "RNA_snn_res.0.3")
+FeaturePlot(pbmc, features = c("AVP"))
+pbmc@meta.data[["RNA_snn_res.10"]][which(pbmc@active.ident=="7")]
+pbmc22$cluster3_nolevel = as.character(pbmc22@meta.data$cluster3)
+cellbarcords = unlist(pbmc@assays$RNA@counts@Dimnames[2])[pbmc@meta.data$RNA_snn_res.0.3==3]
+pbmc22@meta.data$cluster3_nolevel[unlist(pbmc22@assays$RNA@counts@Dimnames[2])%in%cellbarcords] = 49
+pbmc22$cluster5 = factor(as.numeric(pbmc22$cluster3_nolevel))
+new.cluster.ids <- c("CD4.N","CD4.N","CD14.Mono","CD14.Mono","CD4.M","NK","CD14.Mono","CD4.M","LMPP","GMP","Naive B",
+"HSC","CD4.M","HSC","CD8.M","GMP","CD14.Mono","CD8.N","Early.Ery","CD8.N","CD8.M",
+"Late.Ery","NK","Memory B","CD8.M","Immature B","CD16.Mono","pDC","HSC","LMPP","pDC",
+"proB1","proB2","CD16.Mono","cDC","LMPP","CD8.M","CLP","preB","CMP","CLP",
+"CMP","Earyl.Baso","CD8.M","Memory B","Early.Ery","Late.Ery","Plasma","CD4.M","cDC","GMP")
+names(new.cluster.ids) <- levels(pbmc22$cluster5)
+pbmc22@active.ident = pbmc22$cluster5
+pbmc22 <- RenameIdents(pbmc22, new.cluster.ids)
+Idents(pbmc22) <- factor(Idents(pbmc22),levels = 
+c("HSC","LMPP","CLP","proB1","proB2","preB","Immature B","Naive B","Memory B","Plasma","CD8.N","CD4.N","CD4.M","CD8.M","NK","CMP","GMP","pDC","cDC","CD14.Mono","CD16.Mono","Early.Ery","Late.Ery","Earyl.Baso"))
+pbmc22@meta.data$cluster_final = pbmc22@active.ident
+DimPlot(pbmc22, reduction = "umap",label = T,group.by = "cluster_final")
+saveRDS(pbmc22,file = ".../scRNA_res2_add_GMP_annotation.rds")
+pbmc = readRDS(file = ".../scRNA_res2_add_GMP_annotation.rds")
+MAGIC_pbmc2 <- magic(pbmc, genes="all_genes")
+DefaultAssay(MAGIC_pbmc2) <- "MAGIC_RNA"
+pbmc_MAGIC = MAGIC_pbmc2
+levels(pbmc_MAGIC@meta.data$cluster_final)
+```
+##pseudotime analysis for B lineage
+```{r}
+pbmc2 <- readRDS(file = ".../scRNA_res2_annotation.rds")
+
+## subset B lineage cells
+DefaultAssay(pbmc2) <- "RNA"
+pbmc <- subset(pbmc2,subset = cluster3 %in% c('11',"40","37","38","31","32","25","10","23"))
+pbmc <- DietSeurat(
+  object=pbmc,
+  counts=TRUE,
+  data=TRUE,
+  scale.data=FALSE,
+  assays="RNA"
+  )
+
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 3000)
+
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc), 10)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+
+all.genes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+
+#PCA
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
+VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
+DimPlot(pbmc, reduction = "pca")
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+
+pbmc <- JackStraw(pbmc, num.replicate = 100,dims = 20)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:20)
+JackStrawPlot(pbmc, dims = 1:20)
+ElbowPlot(pbmc,ndims = 20, reduction = "pca")
+
+pbmc <- FindNeighbors(pbmc, dims = 1:19,k.param = 10)
+pbmc <- FindClusters(pbmc, resolution = 0.3)
+head(Idents(pbmc), 5)
+pbmc <- RunUMAP(pbmc, dims = 1:19,min.dist = 1)
+
+#take 12 cluster
+pbmc  <- subset(pbmc,subset = RNA_snn_res.0.3 %in% c(0:11))
+
+
+#### Create a Monocle CDS Object
+    # Project PC dimensions to whole data set
+    my.so <- ProjectDim(pbmc, reduction = "pca")
+  
+    # Create an expression matrix
+    expression_matrix <- my.so@assays$RNA@counts
+
+    # Get cell metadata
+    cell_metadata <- my.so@meta.data
+    if (all.equal(colnames(expression_matrix), rownames(cell_metadata))) {
+      print(sprintf("Cell identifiers match"))
+    } else {
+      print(sprintf("Cell identifier mismatch - %i cells in expression matrix, %i cells in   metadata",
+                    ncol(expression_matrix), nrow(cell_metadata)))
+      print("If the counts are equal, sort differences will throw this error")
+    }
+
+    # get gene annotations
+    gene_annotation <- data.frame(gene_short_name = rownames(my.so@assays$RNA), row.names =        rownames(my.so@assays$RNA))
+    if (all.equal(rownames(expression_matrix), rownames(gene_annotation))) {
+      print(sprintf("Gene identifiers all match"))
+    } else {
+      print(sprintf("Gene identifier mismatch - %i genes in expression matrix, %i gene in gene annotation",
+                    nrow(expression_matrix), nrow(gene_annotation)))
+      print("If the counts are equal, sort differences will throw this error")
+    }
+
+    # Seurat-derived CDS
+    my.cds <- new_cell_data_set(expression_matrix,
+                                cell_metadata = cell_metadata,
+                                gene_metadata = gene_annotation)
+  
+    # Transfer Seurat embeddings
+    # Note that these may be calculated on the Integrated object, not the counts
+    #   and thus will involve fewer genes
+    reducedDim(my.cds, type = "PCA") <- my.so@reductions$pca@cell.embeddings 
+    my.cds@preprocess_aux$prop_var_expl <- my.so@reductions$pca@stdev
+    
+    p1  =  plot_pc_variance_explained(my.cds)
+    ggsave(p1,filename=".../scRNAseq/Rid_plot.png")
+    # Transfer Seurat UMAP embeddings
+    my.cds@int_colData@listData$reducedDims$UMAP <- my.so@reductions$umap@cell.embeddings
+  
+    # Copy cluster info from Seurat
+    my.cds@clusters$UMAP_so$clusters <- my.so@meta.data$RNA_snn_res0.3
+
+    my.cds <- cluster_cells(my.cds, reduction_method = "UMAP",k=30, resolution = 0.008)#, resolution = 1e-2
+  
+      # Fix from https://gitmemory.com/cole-trapnell-lab
+    rownames(my.cds@principal_graph_aux$UMAP$dp_mst) <- NULL
+    colnames(my.cds@int_colData@listData$reducedDims$UMAP) <- NULL
+      
+    my.cds@colData$newname = as.character(my.cds@colData$RNA_snn_res.0.3)
+    my.cds@colData$newname[which(my.cds@colData$newname=="1")] = "HSC"
+    my.cds@colData$newname[which(my.cds@colData$newname=="3")] = "LMPP"
+    my.cds@colData$newname[which(my.cds@colData$newname=="6"|my.cds@colData$newname=="8")] = "CLP"
+    my.cds@colData$newname[which(my.cds@colData$newname=="5"|my.cds@colData$newname=="9"|my.cds@colData$newname=="10"|my.cds@colData$newname=="11")] = "proB"
+    my.cds@colData$newname[which(my.cds@colData$newname=="7")] = "preB"
+    my.cds@colData$newname[which(my.cds@colData$newname=="4")] = "ImmatureB"
+    my.cds@colData$newname[which(my.cds@colData$newname=="2")] = "memoryB"
+    my.cds@colData$newname[which(my.cds@colData$newname=="0")] = "naiveB"
+    my.cds@colData$Celltype = factor(my.cds@colData$newname,levels = 
+c("HSC","LMPP","CLP","proB","preB","ImmatureB","naiveB","memoryB"))
+    genes=c("POLG","POLG2","SSBP1","CD34","MS4A1","CD79A","PCNA","MCM6","POLD1","POLD2","POLD3","TFAM","BCL2L1","PINK1")
+  
+    p2 = DimPlot(my.so, reduction = "umap")
+    ggsave(p2,filename=".../scRNAseq/res0.3_pac19_umap.png")
+    p3  = plot_cells(my.cds, color_cells_by = "partition", group_label_size = 3.5)
+    p4 = plot_cells(my.cds, color_cells_by="Celltype",show_trajectory_graph = FALSE, group_label_size = 3.5) 
+    ggsave(p3,filename=".../res0.3_3pac19__p3.png")
+    ggsave(p4,filename=".../res0.3_3pac19__p4.png")
+    my.cds <- learn_graph(my.cds)
+    pp = plot_cells(my.cds, label_groups_by_cluster = FALSE, label_leaves = FALSE, label_branch_points = FALSE,    color_cells_by = "pseudotime")
+    pp = pp + geom_vline(xintercept = seq(-9,-8,0.25)) + geom_hline(yintercept = seq(11,12,0.25))
+    ggsave(pp,filename=".../res0.3_pac19_pseudotime.png")
+
+     
+    embed <- data.frame(Embeddings(my.so, reduction = "umap"))
+    embed <- subset(embed, UMAP_1 > -8 & UMAP_1 < -7.5 & UMAP_2 > 11 & UMAP_2 <11.5 )
+    root.cell <- rownames(embed)
+    my.cds <- order_cells(my.cds, root_cells = root.cell)
+    pp2  = plot_cells(my.cds, color_cells_by = "pseudotime", label_cell_groups = FALSE, label_leaves = FALSE,  label_branch_points = FALSE,cell_size = 0.8)
+    ggsave(pp2,filename=".../res0.3_pac19_pseudotime2_test.pdf",width = 10,height = 8)
+    # plot_genes_violin
+    plot_gene = plot_genes_in_pseudotime(my.cds[genes], color_cells_by="pseudotime", ncol = 2,horizontal_jitter = 0.1)
+    ggsave(plot_gene,filename=".../2res0.3_pac19_plotgene.png")
+      
+    ## magic to rescure expression B lineage cells
+    MAGIC_pbmc2 <- magic(pbmc, genes="all_genes")
+    DefaultAssay(MAGIC_pbmc2) <- "MAGIC_RNA"
+    pbmc_MAGIC = readRDS(file = ".../scRNA_res2_annotation_magic.rds")
+    
+    ## Replot pseudotime for POLG SSgene
+    normlize_data= pbmc_MAGIC[c("POLG2")]@assays$MAGIC_RNA@data[colnames(pbmc_MAGIC)%in%colnames(pbmc)]
+    normlize_data = sgene_SUM_MAGIC
+    #normlize_data = POLD_SUM
+    Celltypes = as.character(my.cds@colData$Celltype)
+    genedata = data.frame(traj.coord,normlize_data,Celltypes)
+    genedata$Celltypes=factor(genedata$Celltypes,levels=(c("HSC","LMPP","CLP","proB","preB","ImmatureB","naiveB","memoryB")))
+    cc = ggplot(genedata, aes(x = traj.coord, y = normlize_data)) +
+    geom_point(aes(colour = Celltypes),size = 1.5) +
+    #geom_hline(yintercept = 0.18,color="black",size=0.5,linetype="dashed")+
+    #geom_vline(xintercept = 0.26,color="black",size=0.5,linetype="dashed")+
+    scale_colour_brewer(palette = "Set2") +
+
+    geom_smooth(se=F, method="loess") +    
+  
+    theme(plot.title = element_text(size = 10,face = "bold", vjust = 0.5, hjust = 0.5),
+        axis.text.x = element_text(size=12, face = "bold",colour="black"),axis.text.y = element_text(size=12, face = "bold",colour="black"),
+        axis.title.x = element_text(size=14, face = "bold"), 
+        axis.title.y = element_text(size=14, face = "bold"),
+        panel.background = element_blank(),
+        
+        line = element_line(size=1),#X Y 轴上的断点大小
+        axis.line = element_line(size =1.0,colour = "black"),
+        
+        legend.title = element_text(size=8, face = "bold",colour="black"),
+        legend.text = element_text(size = 8, face = "bold",colour="black"),
+        legend.position = 'right',
+        legend.key.size=unit(0.5,'cm')) + #图例正方形的大小
+    labs(x="psedotime",y="Expression",colour="Lineage",title = "SSgene")
+    pdf(".../final_sgene_SUM_MAGIC_pseudotime_test.pdf",width = 12,height = 6)
+    cc & scale_color_manual(values =  c("#D51F26","#372C63","#217849","#6B4479","#CB5C51","#E28732","#F9B314","#CCC759")) &  guides(color=F)
+    dev.off()
+    
+    s.genes2 =c("MCM5","PCNA","TYMS","FEN1","MCM2","MCM4",
+    "RRM1","UNG","GINS2","MCM6","CDCA7","DTL",
+    "PRIM1","HELLS","RFC2",
+    "NASP","RAD51AP1","GMNN","WDR76","SLBP","CCNE2",
+    "UBR7","POLD3","MSH2","ATAD2","RAD51","RRM2",
+    "CDC45","CDC6","EXO1","TIPIN","DSCC1","BLM",
+    "USP1","CLSPN","POLA1","CHAF1B","BRIP1",
+    "E2F8")
+
+##Calculate SSgene expression
+sgene_SUM_MAGIC  = c(rep(0,4692))
+for (j in s.genes2){
+  kk = as.numeric(pbmc_MAGIC[c(j)]@assays$MAGIC_RNA@data[colnames(pbmc_MAGIC)%in%colnames(pbmc)])
+  sgene_SUM_MAGIC = sgene_SUM_MAGIC + kk
+}
+POLDgene = c("POLD1","POLD2","POLD3")
+POLD_SUM  = c(rep(0,4692))
+for (j in POLDgene){
+  kk = as.numeric(pbmc_MAGIC[c(j)]@assays$MAGIC_RNA@data[colnames(pbmc_MAGIC)%in%colnames(pbmc)])
+  POLD_SUM = POLD_SUM + kk
+}
+##plot ave_expression heatmap 
+aver_expr = AverageExpression(pbmc_MAGIC,features = unique(s.genes2))
+aver_expr  = aver_expr$RNA
+aver_expr <- t(scale(t(aver_expr)))
+pdf(".../meanexp_cyclegene_heptmap2.pdf",width = 10,height = 6)
+p=pheatmap::pheatmap(aver_expr,cluster_rows = FALSE,cluster_cols = FALSE,border_color = NA,fontsize = 6,angle_col=0,annotation_col = annotation_col,annotation_colors =ann_colors ) 
+plot(p)
+dev.off()
+
+annotation_col <- data.frame(
+CellType = factor(c("HSC","LMPP","CLP","proB1","proB2","preB","ImmatureB","naiveB","memoryB","Plasma","CD8.N","CD4.N","CD4.M","CD8.M","NK","CMP","GMP","pDC","cDC","CD14.Mono","CD16.Mono","Early.Ery","Late.Ery","Earyl.Baso"),
+levels=c("HSC","LMPP","CLP","proB1","proB2","preB","ImmatureB","naiveB","memoryB","Plasma","CD8.N","CD4.N","CD4.M","CD8.M","NK","CMP","GMP","pDC","cDC","CD14.Mono","CD16.Mono","Early.Ery","Late.Ery","Earyl.Baso")))
+rownames(annotation_col) = colnames(aver_expr)
+
+ann_colors = list(
+    CellType = c(HSC="#D51F26",LMPP="#372C63",CLP="#217849",proB1="#6B4479",proB2="#9B5065",preB="#CB5C51",ImmatureB="#E28732",naiveB="#F9B314",memoryB="#CCC759",Plasma="#9B8EC4",CD8.N="#C980B6",CD4.N="#D9C4DD",CD4.M="#8FD4DD",CD8.M="#89C765",NK="#E38578",CMP="#5386A3",GMP="#485991",pDC="#8F2F25",cDC="#2C575E",CD14.Mono="#C99C63",CD16.Mono="#3D3D3D",Early.Ery="#AE81AD",Late.Ery="#BF5D58",Earyl.Baso="#7B8B70")
+)
+
+## plot single_expression heatmap 
+p=DoHeatmap(pbmc_heatmap, features = s.genes2,label=F,slot = "scale.data")+theme(axis.text.y = element_text(face="bold",size=6,colour = "black"))+ggtitle("")
+
+ggsave(p,filename = ".../single_clell_cyclegene_heptmap.pdf",width = 8,height = 6)
+
+## subset B lineage cells
+DefaultAssay(pbmc22) <- "RNA"
+pbmc_heatmap <- subset(pbmc22,subset = cluster_final %in% c('HSC',"LMPP","CLP","proB1","proB2","preB","ImmatureB","naiveB","memoryB"))
+pbmc_heatmap <- DietSeurat(
+  object=pbmc_heatmap,
+  counts=TRUE,
+  data=TRUE,
+  scale.data=TRUE,
+  assays="RNA"
+  )
+
+mycolors = c("#D51F26","#372C63","#217849","#6B4479","#9B5065","#CB5C51","#E28732","#F9B314","#CCC759","#9B8EC4","#C980B6","#D9C4DD","#8FD4DD","#89C765","#E38578","#5386A3","#485991","#8F2F25","#2C575E","#C99C63","#3D3D3D","#AE81AD","#BF5D58","#7B8B70")
+
+##UMAP for allcells
+aa = DimPlot(pbmc22, reduction = "umap",cols = mycolors ,label = T,label.size = 6 ,group.by = "cluster_final", repel = T,sizes.highlight = 5)#+scale_color_manual(values = newcolor)
+ggsave(aa,filename = ".../umap_recolors2.pdf",width = 15,height = 10)
+
+COL = brewer.pal(12,"paired")
+pal<-colorRampPalette(COL)
+mycolors<-pal(24)
+plot(1:24,rep(1,24),col=mycolors,pch=16,cex=2)
+
+##VinPlot for POLD gene
+G2_plot =VlnPlot(pbmc_MAGIC, features = 
+c("POLD1","POLD2","POLD3"),stack = T,flip = T,fill.by = "ident",cols = mycolors,idents = c("HSC","LMPP","CLP","proB1","proB2","preB","ImmatureB","naiveB","memoryB","Plasma","CD8.N","CD4.N","CD4.M","CD8.M","NK","Early.Ery","Late.Ery","Earyl.Baso","CMP","GMP","pDC","cDC","CD14.Mono","CD16.Mono"))
+
+
+```
+

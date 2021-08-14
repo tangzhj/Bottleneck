@@ -1,0 +1,710 @@
+--- 
+title: "scATAC-seq-process"
+output: html_document
+---
+##Generate ArchR project
+```{r}
+library(ArchR)
+set.seed(1)
+inputFiles<-c("GSM4472967_PBMC_rep1.fragments.tsv.gz","GSM4472968_PBMC_rep2.fragments.tsv.gz","GSM4472965_CD34_rep1.fragments.tsv.gz","GSM4472966_CD34_rep2.fragments.tsv.gz")
+names(inputFiles)<-c('PBMC_rep1',"PBMC_rep2","CD34_rep1","CD34_rep2")
+
+addArchRThreads(threads = 16) 
+addArchRGenome("hg19")
+ArrowFiles <- createArrowFiles(
+    inputFiles = inputFiles,
+    sampleNames = names(inputFiles),
+    filterTSS = 4,
+    filterFrags = 1000, 
+    addTileMat = TRUE,
+    addGeneScoreMat = TRUE
+)
+
+ArrowFiles
+doubScores <- addDoubletScores(
+  input = ArrowFiles,
+  k = 5, #Refers to how many cells near a "pseudo-doublet" to count.
+  knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search.
+  LSIMethod = 1,
+  dimsToUse=1:8
+)
+
+
+proj1 <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = "HemeTutorial",
+  copyArrows = TRUE #This is recommened so that you maintain an unaltered copy for later usage.
+)
+
+getAvailableMatrices(proj1)
+df <- getCellColData(proj1, select = "nFrags")
+df <- getCellColData(proj1, select = c("log10(nFrags)", "nFrags - 1"))
+df <- getCellColData(proj1, select = c("log10(nFrags)", "TSSEnrichment"))
+
+p <- ggPoint(
+    x = df[,1], 
+    y = df[,2], 
+    colorDensity = TRUE,
+    continuousSet = "sambaNight",
+    xlabel = "Log10 Unique Fragments",
+    ylabel = "TSS Enrichment",
+    xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
+    ylim = c(0, quantile(df[,2], probs = 0.99))
+) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed")
+
+
+saveArchRProject(ArchRProj = proj1, outputDirectory = "Save-Proj1", load = FALSE)
+test  <- loadArchRProject(path ="...")
+proj2 <- addIterativeLSI(
+    ArchRProj = test,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(0.3), 
+        sampleCells = 10000, 
+        n.start = 10
+    ), 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+
+proj2 <- addClusters(
+    input = proj2,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 1
+)
+
+proj2 <- addUMAP(
+    ArchRProj = proj2, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP1", 
+    nNeighbors = 10, 
+    minDist = 0.1, 
+    metric = "cosine"
+)
+pdf("Plot-UMAP-Sample-Clusters.pdf")
+pp1 <- plotEmbedding(ArchRProj = proj3, colorBy = "cellColData", name = "Sample", embedding = "UMAP1")
+pp2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+ggAlignPlots(pp1, pp2, type = "h")
+dev.off()
+
+markersGS <- getMarkerFeatures(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+proj22 <- addImputeWeights(proj2)
+
+p <- plotEmbedding(
+    ArchRProj = proj22, 
+    colorBy = "GeneScoreMatrix", 
+    name = markerGenes_MPP, 
+    embedding = "UMAP1",
+    imputeWeights = getImputeWeights(proj22)
+)
+p2 <- lapply(p, function(x){
+    x + guides(color = FALSE, fill = FALSE) + 
+    theme_ArchR(baseSize = 6.5) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+    theme(
+        axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.ticks.y=element_blank()
+    )
+})
+do.call(cowplot::plot_grid, c(list(ncol = 3),p2))
+
+plotPDF(plotList = p$POLG, 
+    name = "POLG_genescore.pdf", 
+    ArchRProj = proj3, 
+    addDOC = FALSE, width = 5, height = 5)
+
+ggsave(p$POLG,filename = "POLG_genescore.pdf")
+
+plotPDF(p$POLG, name = "POLG_genescore.pdf", ArchRProj = proj3, addDOC = FALSE, width = 5, height = 5)
+
+markerGenes<-c("POLG","POLG2","MTERF1","TWNK","ATAD3A","ATAD3B","TFAM","SSBP1","MDP1")
+p <- plotBrowserTrack(
+    ArchRProj = proj2, 
+    groupBy = "Clusters3", 
+    geneSymbol = markerGenes, 
+    upstream = 30000,
+    downstream = 30000
+)
+```
+## scATACseq and scRNAseq Integration
+```{r}
+library(ArchR)
+set.seed(1)
+proj2 <- loadArchRProject(path ="...")
+seRNA <- readRDS(".../scRNA-Hematopoiesis-Granja-2019.rds")
+seRNA
+colnames(colData(seRNA))
+seRNA[["BioClassification"]]
+table(colData(seRNA)$BioClassification)
+#Unconstrained Integration
+proj2 <- addGeneIntegrationMatrix(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+#Constrained Integration
+cM <- as.matrix(confusionMatrix(proj2$Clusters, proj2$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments
+unique(unique(proj2$predictedGroup_Un))
+# cNonTNK <- paste0(c(paste0("0", 1:9), 10:13, 15:18), collapse="|")
+# cNonTNK
+# 
+# cTNK <- paste0(paste0(19:25), collapse="|")
+# cTNK
+cTNK <- paste0(paste0(19:25), collapse="|")
+cTNK
+cNonTNK <- paste0(c(paste0("0", 1:9), 10:13, 15:18), collapse="|")
+cNonTNK
+clustTNK <- rownames(cM)[grep(cTNK, preClust)]
+clustTNK
+clustNonTNK <- rownames(cM)[grep(cNonTNK, preClust)]
+clustNonTNK
+rnaTNK <- colnames(seRNA)[grep(cTNK, colData(seRNA)$BioClassification)]
+head(rnaTNK)
+rnaNonTNK <- colnames(seRNA)[grep(cNonTNK, colData(seRNA)$BioClassification)]
+head(rnaNonTNK)
+groupList <- SimpleList(
+    TNK = SimpleList(
+        ATAC = proj2$cellNames[proj2$Clusters %in% clustTNK],
+        RNA = rnaTNK
+    ),
+    NonTNK = SimpleList(
+        ATAC = proj2$cellNames[proj2$Clusters %in% clustNonTNK],
+        RNA = rnaNonTNK
+    )    
+)
+proj2 <- addGeneIntegrationMatrix(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE, 
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Co",
+    nameGroup = "predictedGroup_Co",
+    nameScore = "predictedScore_Co"
+)
+pal <- paletteDiscrete(values = colData(seRNA)$BioClassification)
+p1 <- plotEmbedding(
+    proj2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    pal = pal,
+    embedding  = "UMAP2"
+)
+p1
+p2 <- plotEmbedding(
+    proj2, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Co", 
+    pal = pal,
+     embedding  = "UMAP1"
+)
+p2
+ggsave(p1,filename = "...",width=6,heigh=6)
+ggsave(p2,filename = "...",width=6,heigh=6)
+
+#Adding Pseudo-scRNA-seq profiles for each scATAC-seq cell
+proj2.sudo <- addGeneIntegrationMatrix(
+    ArchRProj = proj2, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = TRUE,
+    force= TRUE,
+    groupList = groupList,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell",
+    nameGroup = "predictedGroup",
+    nameScore = "predictedScore"
+)
+getAvailableMatrices(proj2.sudo)
+markerGenes =  c("TYMP", "RRM2B","DGUOK","TK2","TP53","PPARGC1B","PPARGC1A","POLD1","POLG","POLG2","ITGA6","CD34","IL7R","MME","CD38","THY1","CD7","FLT3","CSF1R","NCAM1","PTPRC","FCGR3B","FCGR3A","NKG7","GNLY","CD19","MS4A1","EBF1","SPIB","PPBP","CD14","AVP","HLF","CRHBP","DNTT","DERL3","CD79B","GATA1","SPI1","MPO","CLEC9A","SH2D1A","CLEC4C","SIGLEC10","IRF8","BCL11A","CD4","CD8A","S100A4","CCR7")
+pp1 <- plotEmbedding(
+    ArchRProj = proj2.sudo, 
+    colorBy = "GeneIntegrationMatrix", 
+    name = markerGenes, 
+    continuousSet = "horizonExtra",
+    embedding = "UMAP1",
+    imputeWeights = getImputeWeights(proj2.sudo)
+)
+pdf(".../CD34-Marker-RNA-res20.pdf")
+for (i in markerGenes){
+  aa = pp1[[i]]
+  print(aa)
+}
+dev.off()
+
+pdf(".../CD34_umap_res20.pdf")
+up = plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+print(up)
+dev.off()
+saveArchRProject(ArchRProj = proj2.sudo, outputDirectory = "...CD34_proj_res20", load = FALSE)
+pa <- plotBrowserTrack(
+    ArchRProj = proj2, 
+    groupBy = "Clusters", 
+    geneSymbol = "SSBP1", 
+    upstream = 30000,
+    downstream = 20000
+)
+grid::grid.newpage()
+grid::grid.draw(pa$SSBP1)
+
+####Pseudotime
+proj2 <- loadArchRProject(path =".../CD34_proj_res2")
+proj2$Clusters3 = proj2$Clusters
+sudo1 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+sudo2 <- plotEmbedding(ArchRProj = proj2, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+ggAlignPlots(sudo1, sudo2, type = "h")
+
+##Pseudotime for POLG gene
+trajectory <- c("C10","C8","C7")
+proj2 <- addTrajectory(
+    ArchRProj = proj2, 
+    name = "MyeloidU", 
+    groupBy = "Clusters3",
+    trajectory = trajectory, 
+    embedding = "UMAP1", 
+    force = TRUE
+)
+head(proj2$MyeloidU[!is.na(proj2$MyeloidU)])
+
+Trajectoryp <- plotTrajectory(proj2, trajectory = "MyeloidU", colorBy = "GeneScoreMatrix", name = "POLG",embedding = "UMAP1", continuousSet = "blueYellow")
+Trajectoryp[[1]]
+Trajectoryp[[2]]
+```
+## Co-accessibility with ArchR
+```{r}
+getAvailableMatrices(proj2)
+proj5 <- loadArchRProject(path ="/md01/tangzj/ArchR/CD34_proj_res2_co_accessibility")
+proj5 <- loadArchRProject(path="/public/home/Chenzh275/Data/tzj/12-1Proj5peak")
+projHeme5 <- addCoAccessibility(
+    ArchRProj = projHeme5,
+    reducedDims = "IterativeLSI"
+)
+cA <- getCoAccessibility(
+    ArchRProj = projHeme5,
+    corCutOff = 0.5,
+    resolution = 1,
+    returnLoops = FALSE
+)
+cA
+markerGenes  <- c(
+    "CD14","POLG","POLG2","CD34","SSBP1"
+  )
+
+pdf(".../proj_res1_gene_to_peak.pdf")
+p <- plotBrowserTrack(
+    ArchRProj = projHeme5, 
+    groupBy = "Clusters", 
+    geneSymbol = markerGenes, 
+    upstream = 50000,
+    downstream = 50000,
+    loops = getCoAccessibility(projHeme5)
+)
+plot(p[[1]])
+plot(p[[2]])
+plot(p[[3]])
+plot(p[[4]])
+plot(p[[5]])
+dev.off()
+grid::grid.newpage()
+grid::grid.draw(p$POLG)
+projHeme5 <- addGeneIntegrationMatrix(
+    ArchRProj = projHeme5, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = F,
+    groupRNA = "BioClassification",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+projHeme5 <- addPeak2GeneLinks(
+    ArchRProj = projHeme5,
+    reducedDims = "IterativeLSI"
+)
+
+p2g <- getPeak2GeneLinks(
+    ArchRProj = projHeme5,
+    corCutOff = 0.45,
+    resolution = 1,
+    returnLoops = FALSE
+)
+
+####plot gene to peak
+pdf(".../proj_res1_gene_to_peak2_GNLY.pdf")
+pa <- plotBrowserTrack(
+    ArchRProj = projHeme5, 
+    groupBy = "Clusters3", 
+    geneSymbol = "GNLY", 
+    upstream = 50000,
+    downstream = 50000,
+    loops = getPeak2GeneLinks(projHeme5)
+)
+plot(pa[[1]])
+dev.off()
+projHeme5$Clusters3 = projHeme5$Clusters2
+projHeme5$Clusters3[which(projHeme5$Clusters3=="HSC/MPP")] = "1-HSC.MPP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="LMPP")] = "2-LMPP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CLP")] = "3-CLP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="pro-B")] = "4-proB"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="preB")] = "5-preB"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="NaiveB")] = "6-NaiveB"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="memoryB")] = "7-memoryB"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="plasma")] = "8-plasma"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD8 Naive")] = "9-CD8.Naive"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD4 Naive")] = "10-CD4.Naive"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD8 mem")] = "11-CD8.mem"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD4 mem")] = "12-CD4.mem"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="NK")] = "13-NK"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="Early.Eryth")] = "14-Early.Eryth"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="Late.Eryth")] = "15-Late.Eryth"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="Early.Baso")] = "16-Early.Baso"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CMP")] = "17-CMP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="GMP")] = "18-GMP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="MDP")] = "19-MDP"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="pDC")] = "20-pDC"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD14.Mono")] = "21-CD14.Mono"
+projHeme5$Clusters3[which(projHeme5$Clusters3=="CD16.Mono")] = "22-CD16.Mono"
+grid::grid.newpage()
+grid::grid.draw(p$POLG2)
+saveArchRProject(ArchRProj = projHeme5, outputDirectory = ".../proj_res1_annotated_genetopeak_final", load = FALSE)
+projHeme5 <- loadArchRProject(path =".../proj_res1_annotated_genetopeak_final")
+getAvailableMatrices(proj5)
+
+```
+## More detailed classification for cell types
+```{r}
+library(ArchR)
+set.seed(1)
+proj_res1 = loadArchRProject(path =".../ArchR2/proj_res1")
+#extract CLP and Re-clustering
+proJCLP_res4 = loadArchRProject(path =".../projCLP_res4")
+
+pp1 <- plotEmbedding(ArchRProj = proj_res1, colorBy = "cellColData", name = "Sample", embedding = "UMAP1")#画出每个cluster的标记图
+pdf(".../fullpipline_CD34_proj_res2.pdf")
+pp2 <- plotEmbedding(ArchRProj = proj_res1, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+print(pp2)
+dev.off()
+pp1
+pp2
+
+#extract B from C4, C5 and Re-clustering
+projB=proj_res1[which(proj_res1@cellColData$Clusters == "C4"|proj_res1@cellColData$Clusters == "C5"),] 
+
+
+projB <- addIterativeLSI(
+    ArchRProj = projB,
+    useMatrix = "TileMatrix", 
+    name = "one", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(10), 
+        sampleCells = 1350, 
+        n.start = 10
+    ), 
+    varFeatures = 50000, 
+    dimsToUse = 1:50
+)
+
+projB <- addClusters(
+    input = projB,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters2",
+    resolution = 10
+)
+projB <- addUMAP(
+    ArchRProj = projB, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP2", 
+    nNeighbors = 40, 
+    minDist = 0.001, 
+    metric = "cosine"
+)
+pp1 <- plotEmbedding(ArchRProj = projB, colorBy = "cellColData", name = "Sample", embedding ="UMAP2")
+pp2 <- plotEmbedding(ArchRProj = projB, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP1")
+markersGS <- getMarkerFeatures(
+    ArchRProj = projB, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+proj <- addImputeWeights(proj_res1)
+markerGenes =  c("IL2RB","FASLG","CD3D","IFNG","NCR1","EOMES","RAG1","RAG2","IL4R","CEBPB","PAX5","POLD1","POLG","POLG2","ITGA6","CD34","IL7R","MME","CD38","THY1","CD7","FLT3","CSF1R","NCAM1","PTPRC","FCGR3B","FCGR3A","NKG7","GNLY","CD19","MS4A1","CD79A","CD79B","EBF1","SPIB","PPBP","CD14","AVP","HLF","CRHBP","DNTT","DERL3","CD79B","GATA1","SPI1","MPO","CLEC9A","SH2D1A","CLEC4C","SIGLEC10","IRF8","BCL11A","CD4","CD8A","S100A4","CCR7","LEF1")
+pdf(".../proj_res1_marker.pdf")
+p <- plotEmbedding(
+    ArchRProj = proj, 
+    colorBy = "GeneScoreMatrix", 
+    name = c("CD19"), 
+    embedding = "UMAP1",
+    imputeWeights = getImputeWeights(proj)
+)
+print(p)
+dev.off()
+pdf(".../projB_res10.pdf")
+pp2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP2")
+print(pp2)
+dev.off()
+saveArchRProject(ArchRProj = proj, outputDirectory = ".../projB_res10", load = FALSE)
+
+
+##Get genescore matrix
+library(magrittr)
+proj_res1 = loadArchRProject(path =".../proj_res1_annotated")
+a<-getMatrixFromProject(ArchRProj = proj_res1, useMatrix = "GeneScoreMatrix")
+matrix = a@assays@data$GeneScoreMatrix
+genename = a@elementMetadata$name
+b<-read.table("./hsc_mono_allsite.txt",row.names=1,header = T,stringsAsFactors = FALSE) %>% rownames()
+celltype<-read.table("./hsc_mono_allsite.txt",row.names=1,header = T,stringsAsFactors = FALSE) %$%celltype 
+coln=colnames(matrix)
+coln=strsplit(coln,split = "#") %>% unlist
+coln=coln[-grep(coln,pattern = "rep")] %>% gsub("-1","",.)
+head(coln)
+colnames(matrix)=coln
+index=match(b,colnames(matrix),nomatch = 0)
+index=index[which(index!=0)]
+length(index)
+matrix_1=matrix[,index]
+#all(colnames(matrix_1) %in% matrix)
+rownames(matrix_1)=genename
+matrix_1=t(matrix_1) %>% as.matrix() %>% as.data.frame()
+matrix_1$celltype=celltype[match(rownames(matrix_1),b)]
+saveRDS(matrix_1,file = "hsc_mono.rds")
+#MA = readRDS(file = "hsc_mono.rds")
+
+```
+
+##Extract CLP and Re-clustering
+```{r}
+
+projCLP=proj_res1[which(proj_res1@cellColData$Clusters == "C1"|proj_res1@cellColData$Clusters == "C2"),] 
+pp1 <- plotEmbedding(ArchRProj = projCLP, colorBy = "cellColData", name = "Sample", embedding ="UMAP1")
+pp2 <- plotEmbedding(ArchRProj = projCLP, colorBy = "cellColData", name = "Clusters", embedding = "UMAP1")
+pp1
+pp2
+projCLP <- addIterativeLSI(
+    ArchRProj = projCLP,
+    useMatrix = "TileMatrix", 
+    name = "one", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(10), 
+        sampleCells = 3000, 
+        n.start = 10
+    ), 
+    varFeatures = 25000, 
+    dimsToUse = 1:50
+)
+projCLP <- addClusters(
+    input = projCLP,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters2",
+    resolution = 10
+)
+
+projCLP <- addUMAP(
+    ArchRProj = projCLP, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP2", 
+    nNeighbors = 40, 
+    minDist = 0.001, 
+    metric = "cosine"
+)
+markersGS <- getMarkerFeatures(
+    ArchRProj = projCLP, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+proj <- addImputeWeights(projCLP_res4)
+pdf(".../projCLP_res4_marker.pdf")
+p <- plotEmbedding(
+    ArchRProj = proj, 
+    colorBy = "GeneScoreMatrix", 
+    name = markerGenes, 
+    embedding = "UMAP2",
+    imputeWeights = getImputeWeights(proj)
+)
+print(p)
+dev.off()
+pdf(".../proj_res1_final.pdf")
+pp2 <- plotEmbedding(ArchRProj = proj, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP2")
+print(pp2)
+dev.off()
+####Extract barcord and change Cluster for preB
+selectnames = projB@cellColData@rownames[50:200]
+projB@cellColData@rownames%in%selectnames
+projB$Clusters2 = projB$Clusters
+projB$Clusters2[projB@cellColData@rownames%in%selectnames]  = "C6"
+
+
+
+C123=proJCLP_res4[which(proJCLP_res4@cellColData$Clusters2 == "C1"|proJCLP_res4@cellColData$Clusters2 == "C2"|proJCLP_res4@cellColData$Clusters2 == "C3"),] 
+
+selectnames = C123@cellColData@rownames
+
+proj_res1@cellColData@rownames%in%selectnames
+proj_res1$Clusters2 = proj_res1$Clusters
+proj_res1$Clusters2[proj_res1@cellColData@rownames%in%selectnames]  = "preB"
+
+pp2 <- plotEmbedding(ArchRProj = proj_res1, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP1")
+p
+```
+##Extract T cell and Re-clustering
+```{r}
+projTNK = loadArchRProject(path =".../projTNK_res20")
+
+projTNK=proj_res1[which(proj_res1@cellColData$Clusters == "C12"|proj_res1@cellColData$Clusters == "C13"|proj_res1@cellColData$Clusters == "C14"|proj_res1@cellColData$Clusters == "C15"|proj_res1@cellColData$Clusters == "C16"|proj_res1@cellColData$Clusters == "C17"|proj_res1@cellColData$Clusters == "C18"),]
+projTNK <- addIterativeLSI(
+    ArchRProj = projTNK,
+    useMatrix = "TileMatrix", 
+    name = "one", 
+    iterations = 2, 
+    clusterParams = list( #See Seurat::FindClusters
+        resolution = c(1), 
+        sampleCells = 8000, 
+        n.start = 20
+    ), 
+    varFeatures = 50000, 
+    dimsToUse = 1:50
+)
+projTNK <- addClusters(
+    input = projTNK,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters2",
+    resolution = 20
+)
+projTNK <- addUMAP(
+    ArchRProj = projTNK, 
+    reducedDims = "IterativeLSI", 
+    name = "UMAP2", 
+    nNeighbors = 40, 
+    minDist = 0.01, 
+    metric = "cosine"
+)
+markersGS <- getMarkerFeatures(
+    ArchRProj = projTNK, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1")
+proj <- addImputeWeights(projTNK)
+pdf(".../projTNK_res20_marker.pdf")
+p <- plotEmbedding(
+    ArchRProj = proj, 
+    colorBy = "GeneScoreMatrix", 
+    name = markerGenes, 
+    embedding = "UMAP2",
+    imputeWeights = getImputeWeights(proj)
+)
+print(p)
+dev.off()
+pdf(".../projTNK_res20.pdf")
+pp2 <- plotEmbedding(ArchRProj = projTNK, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP2")
+print(pp2)
+dev.off()
+saveArchRProject(ArchRProj = proj, outputDirectory = ".../projTNK_res20", load = FALSE)
+```
+## Integrate all cell annotations
+```{r}
+library(ArchR)
+proj_res1 = loadArchRProject(path =".../proj_res1_annotated")
+projCLP_res4 = loadArchRProject(path =".../projCLP_res4")
+projTNK_res20 = loadArchRProject(path =".../projTNK_res20")
+# Get C1, C2 from  projCLP_res4 for preB cells
+preB=projCLP_res4[which(projCLP_res4@cellColData$Clusters2 =="C1"|projCLP_res4@cellColData$Clusters2 == "C2"),] 
+selectnames = preB@cellColData@rownames
+#proj_res1@cellColData@rownames%in%selectnames
+proj_res1$Clusters2 = proj_res1$Clusters
+proj_res1$Clusters2[proj_res1@cellColData@rownames%in%selectnames]  = "5-preB"
+# Get C17 C19 C20 from  projCLP_res4 for proB cells
+proB=projCLP_res4[which(projCLP_res4@cellColData$Clusters2 =="C8"|projCLP_res4@cellColData$Clusters2 == "C19"|projCLP_res4@cellColData$Clusters2 == "C20"|projCLP_res4@cellColData$Clusters2 == "17"),] 
+selectnames = proB@cellColData@rownames
+proj_res1$Clusters2[proj_res1@cellColData@rownames%in%selectnames]  = "C2"
+##Get C8 C9 C10 from projTNK_res5 for CD8 Naive T cells
+CD8naiveT=projTNK_res20[which(projTNK_res20@cellColData$Clusters2 =="C9"),] 
+selectnames = CD8naiveT@cellColData@rownames
+proj_res1$Clusters2[proj_res1@cellColData@rownames%in%selectnames]  = "9-CD8.Naive"
+#
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C1")] = "3-CLP"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C2")] = "4-proB"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C3")] = "8-plasma"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C4")] = "6-NaiveB"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C5")] = "7-memoryB"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C6")] = "21-CD14.Mono"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C7")] = "21-CD14.Mono"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C8")] = "22-CD16.Mono"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C9")] = "20-pDC"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C10")] = "19-MDP"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C11")] = "18-GMP"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C12"|proj_res1$Clusters2=="C13"|proj_res1$Clusters2=="C17")] = "13-NK"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C14"|proj_res1$Clusters2=="C18")] = "11-CD8.mem"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C15")] = "12-CD4.mem"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C16")] = "10-CD4.Naive"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C19"|proj_res1$Clusters2=="C22")] = "16-Early.Baso"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C20")] = "14-Early.Eryth"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C21")] = "15-Late.Eryth"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C23")] = "1-HSC.MPP"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C24")] = "17-CMP"
+proj_res1$Clusters2[which(proj_res1$Clusters2=="C25")] = "2-LMPP"
+pp2 <- plotEmbedding(ArchRProj = proj_res1, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP1")
+pp2
+#get celltypes and barcords for following scATAC-seq mitochondrial DNA variants calling
+write.table (proj_res1$Clusters2, file =".../proj_res1_final_cluster.txt", sep ="\t", row.names =TRUE, col.names =TRUE, quote =TRUE)
+ls_colors=ggplot_build(pp2)$data[[1]]$colour
+ls_colors=unique(ls_colors)
+#ls_colors
+plot(1:22,rep(1,22),col=ls_colors,pch=16,cex=2)#plot unique color &&compare with umap corlor,and reorder 
+newcolor = c("#D51F26","#372C63","#217849","#6B4479","#CB5C51","#F9B314","#CCC759","#9B8EC4","#C980B6","#D9C4DD","#8FD4DD","#89C765","#E38578","#AE81AD","#BF5D58","#7B8B70","#5386A3","#485991","#2C575E","#8F2F25","#C99C63","#3D3D3D")
+pp2+scale_color_manual(values = newcolor2)
+
+##get colors form uamp
+proj_res1_annotated = loadArchRProject(path =".../proj_res1_annotated")
+pp2 <- plotEmbedding(ArchRProj = proj_res1_annotated, colorBy = "cellColData", name = "Clusters2", embedding = "UMAP1")
+
+ls_colors=ggplot_build(pp2)$data[[1]]$colour
+ls_colors=unique(ls_colors)
+#ls_colors
+plot(1:22,rep(1,22),col=ls_colors,pch=16,cex=2)#plot unique color &&compare with umap corlor,and reorder 
+newcolor = c("#D51F26","#372C63","#217849","#6B4479","#CB5C51","#F9B314","#CCC759","#9B8EC4","#C980B6","#D9C4DD","#8FD4DD","#89C765","#E38578","#AE81AD","#BF5D58","#7B8B70","#5386A3","#485991","#2C575E","#8F2F25","#C99C63","#3D3D3D")
+pp3 = pp2+scale_color_manual(values = newcolor)
+```
+
+
+

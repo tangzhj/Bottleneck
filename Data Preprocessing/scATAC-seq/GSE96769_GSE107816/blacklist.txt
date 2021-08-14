@@ -1,0 +1,15 @@
+Chrom     Position
+chrMT	302
+chrMT	309
+chrMT	312
+chrMT	313
+chrMT	316
+chrMT	514
+chrMT	515
+chrMT	523
+chrMT	524
+chrMT	3106
+chrMT	3107
+chrMT	3109
+chrMT	3110
+chrMT	16181

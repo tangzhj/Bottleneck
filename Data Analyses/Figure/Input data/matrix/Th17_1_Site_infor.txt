@@ -1,0 +1,16 @@
+chrMT:204:T/C
+chrMT:436:C/T
+chrMT:619:T/C
+chrMT:2619:A/G
+chrMT:2896:G/A
+chrMT:4769:A/G
+chrMT:5447:C/T
+chrMT:8685:C/T
+chrMT:9145:G/A
+chrMT:10937:C/T
+chrMT:10950:C/T
+chrMT:12824:A/G
+chrMT:15200:G/A
+chrMT:16044:T/C
+chrMT:16219:A/G
+chrMT:16362:T/C
