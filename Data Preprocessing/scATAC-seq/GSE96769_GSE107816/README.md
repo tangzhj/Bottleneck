@@ -8,7 +8,7 @@ project_name="LMPP"
 # THe core pipeline which align each single cell and split into genome and mito genome.
 # input parameters: sample sheet from the first step	output_folder 
 1_scATAC_mito.sh  sample.csv  $output
-# SNP and peak calling with merged single cell data after alignment.
+# SNP and peak calling with merged single cell data after alignment. 
 # input parameters	output_folder from last step and name for the 
 2_merge_cells1.sh   $output  $project_name
 # Generate summary  table
