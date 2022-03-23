@@ -5,7 +5,7 @@ import subprocess
 # file to split on
 unsplit_file = "possorted_bam_chrM_realign_sorted.bam"
 # where to place output files
-out_dir = "./12-11_nofilter/splitbam/"
+out_dir = "./splitbam/"
 
 # variable to hold barcode index
 CB_hold = 'unset'
@@ -15,12 +15,16 @@ samfile = pysam.AlignmentFile( unsplit_file, "rb")
 lit = []
 for read in samfile.fetch( until_eof=True):
     # barcode itr for current read
-    CB_itr = read.get_tag('CR')
+    try:
+        CB_itr = read.get_tag('CB')
+    except:
+        continue
+    CB_itr = read.get_tag('CB')
     # if change in barcode or first line; open new file  
     if( CB_itr!=CB_hold or itr==0):
         # close previous split file, only if not first read in file
         if( itr!=0):
-	    if len(lit)>100:
+            if len(lit)>100:
                 split_file = pysam.AlignmentFile( out_dir + "{}.bam".format(CB_hold), "wb", template=samfile)
                 for kk in lit:
                     split_file.write(kk)
