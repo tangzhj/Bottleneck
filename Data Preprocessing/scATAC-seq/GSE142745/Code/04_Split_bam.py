@@ -3,7 +3,7 @@ import pysam
 import os
 import subprocess
 # file to split on
-unsplit_file = "possorted_bam_chrM_realign_sorted.bam"
+unsplit_file = "atac_possorted_bam.sorted.bam"
 # where to place output files
 out_dir = "./splitbam/"
 
@@ -24,7 +24,7 @@ for read in samfile.fetch( until_eof=True):
     if( CB_itr!=CB_hold or itr==0):
         # close previous split file, only if not first read in file
         if( itr!=0):
-            if len(lit)>100:
+            if len(lit)>1:
                 split_file = pysam.AlignmentFile( out_dir + "{}.bam".format(CB_hold), "wb", template=samfile)
                 for kk in lit:
                     split_file.write(kk)
